@@ -7,10 +7,10 @@ fn main() {
         process::exit(1);
     });
 
-    let _search_results = config.run().unwrap_or_else(|err|{
+    let search_results = config.grep().unwrap_or_else(|err| {
         println!("Application error: {err}");
         process::exit(2);
     });
+
+    search_results.print_grep_output(&config);
 }
-
-
