@@ -1,13 +1,17 @@
+use std::env;
 use std::process;
 
-use rust_mini_grep::*;
+use rust_mini_grep::GrepConfig;
+use rust_mini_grep::SearchResults;
+
 fn main() {
-    let config = GrepConfig::build().unwrap_or_else(|err| {
+    let command_line_args: Vec<String> = env::args().collect();
+    let config: GrepConfig = GrepConfig::new(&command_line_args).unwrap_or_else(|err| {
         println!("Application error: {err}");
         process::exit(1);
     });
 
-    let search_results = config.grep().unwrap_or_else(|err| {
+    let search_results: SearchResults = config.grep().unwrap_or_else(|err| {
         println!("Application error: {err}");
         process::exit(2);
     });

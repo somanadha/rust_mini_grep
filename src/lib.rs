@@ -1,27 +1,24 @@
-use std::collections::HashMap;
-use std::env;
+use indexmap::IndexMap;
 use std::error::Error;
 use std::fs;
+
 pub struct GrepConfig {
     pub search_string: String,
     pub search_file_name: String,
 }
 pub struct SearchResults {
-    results: HashMap<i32, Vec<usize>>,
+    results: IndexMap<i32, Vec<usize>>,
 }
 
 impl GrepConfig {
-    pub fn build() -> Result<GrepConfig, &'static str> {
-        let command_line_args: Vec<String> = env::args().collect();
-
-        if command_line_args.len() < 3 {
+    pub fn new(args: &[String]) -> Result<GrepConfig, &'static str> {
+        if args.len() < 3 {
             Err("Too few argments - Syntax: rust_mini_grep <SEARCH_STRING> <SEARCH_FILE_NAME>")
         } else {
             let config = GrepConfig {
-                search_string: command_line_args[1].clone(),
-                search_file_name: command_line_args[2].clone(),
+                search_string: args[1].clone(),
+                search_file_name: args[2].clone(),
             };
-
             Ok(config)
         }
     }
@@ -29,25 +26,27 @@ impl GrepConfig {
     pub fn grep(&self) -> Result<SearchResults, Box<dyn Error>> {
         let file_data = fs::read_to_string(self.search_file_name.as_str())?;
 
-        println!("{file_data}");
-
-        let mut results_map: HashMap<i32, Vec<usize>> = HashMap::new();
+        let mut results_map: IndexMap<i32, Vec<usize>> = IndexMap::new();
 
         for one_line in file_data.lines().zip(1..) {
             let mut indexes_vector = Vec::new();
             let mut currunet_str: &str = one_line.0;
             let mut current_index: usize = 0;
+            let mut previous_index: usize = 0;
             loop {
                 currunet_str = &currunet_str[current_index..];
-                match currunet_str.find(one_line.0) {
+                match currunet_str.find(&self.search_string) {
                     Some(index) => {
-                        indexes_vector.push(index);
-                        current_index = index + 1;
+                        indexes_vector.push(previous_index + index);
+                        current_index = index + self.search_string.len();
+                        previous_index += current_index;
                     }
                     None => break,
                 };
             }
-            results_map.insert(one_line.1, indexes_vector);
+            if indexes_vector.len() > 0 {
+                results_map.insert(one_line.1, indexes_vector);
+            }
         }
 
         let search_results: SearchResults = SearchResults {
@@ -73,9 +72,24 @@ impl SearchResults {
 
     fn concatenate_indexes(&self, indexes_vector: &Vec<usize>) -> String {
         let mut concatenated_indexes_string: String = String::new();
-        for each_index in indexes_vector {
-            concatenated_indexes_string.push_str(&each_index.to_string());
+        if indexes_vector.len() > 0 {
+            for each_index in indexes_vector {
+                concatenated_indexes_string.push_str(&each_index.to_string());
+                concatenated_indexes_string.push_str(", ");
+            }
+            concatenated_indexes_string = concatenated_indexes_string
+                .trim_end_matches(", ")
+                .to_string();
         }
         concatenated_indexes_string
+    }
+}
+#[cfg(test)]
+pub mod tests {
+    use super::*;
+
+    #[test]
+    fn test_grep_config_build() {
+        let args = vec!["dummy", "or", "test.txt"];
     }
 }
