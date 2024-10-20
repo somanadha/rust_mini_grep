@@ -9,6 +9,7 @@ pub struct GrepConfig {
 }
 
 impl GrepConfig {
+    pub const CASE_INSENSITIVE_ENV_VAR: &'static str = "CASE_INSENSITIVE";
     pub fn new(args: &[String]) -> Result<GrepConfig, &'static str> {
         if args.len() < 2 {
             Err("Too few argments - Syntax: rust_mini_grep <SEARCH_STRING> <SEARCH_FILE_NAME>")
@@ -16,7 +17,7 @@ impl GrepConfig {
             let config = GrepConfig {
                 search_string: args[0].clone(),
                 search_file_name: args[1].clone(),
-                ignore_case: match env::var("CASE_INSENSITIVE") {
+                ignore_case: match env::var(GrepConfig::CASE_INSENSITIVE_ENV_VAR) {
                     Err(_) => false,
                     Ok(flag) => flag.parse().unwrap_or(false)
                 },
@@ -125,7 +126,7 @@ impl SearchResults {
 }
 
 #[cfg(test)]
-pub mod tests {
+pub mod case_sensitive_tests {
     use super::*;
 
     fn get_config_instance() -> Result<GrepConfig, &'static str> {
@@ -142,7 +143,7 @@ pub mod tests {
     }
 
     #[test]
-    fn test_grep_function() {
+    fn test_grep_function_lower_case() {
         let config = get_config_instance().expect("Unable to create input parameters");
         let search_results = SearchResults::grep(&config).expect("Error in grep function");
 
@@ -177,4 +178,81 @@ pub mod tests {
             search_results.concatenate_indexes(&search_results.results.get(&10).unwrap().1)
         );
     }
+
+    fn get_config_instance_upper_case_search_string() -> Result<GrepConfig, &'static str> {
+        let args = vec![String::from("OR"), String::from("test.txt")];
+        GrepConfig::new(&args)
+    }
+
+    #[test]
+    fn test_grep_function_upper_case() {
+
+        let config = get_config_instance_upper_case_search_string().expect("Unable to create input parameters");
+        let search_results = SearchResults::grep(&config).expect("Error in grep function");
+
+        search_results.print_grep_output(&config);
+
+        assert_eq!(0, search_results.results.len());
+    }
 }
+
+#[cfg(test)]
+pub mod case_in_sensitive_tests {
+    use super::*;
+
+    fn get_config_instance_upper_case_search_string() -> Result<GrepConfig, &'static str> {
+        let args = vec![String::from("ER"), String::from("test.txt")];
+
+        GrepConfig::new(&args)
+    }
+
+    #[test]
+    fn test_config_new_upper_case() {
+        let config = get_config_instance_upper_case_search_string().expect("Unable to create input parameters");
+
+        assert_eq!(config.get_search_string(), "ER");
+        assert_eq!(config.get_search_file_name(), "test.txt")
+    }
+
+    #[test]
+    fn test_grep_function_upper_case() {
+        env::set_var(GrepConfig::CASE_INSENSITIVE_ENV_VAR, "true");
+
+        let config = get_config_instance_upper_case_search_string().expect("Unable to create input parameters");
+        let search_results = SearchResults::grep(&config).expect("Error in grep function");
+
+        search_results.print_grep_output(&config);
+
+        assert_eq!(5, search_results.results.len());
+
+        assert_eq!(4, search_results.results.keys()[0]);
+        assert_eq!(6, search_results.results.keys()[1]);
+        assert_eq!(7, search_results.results.keys()[2]);
+        assert_eq!(8, search_results.results.keys()[3]);
+        assert_eq!(10, search_results.results.keys()[4]);
+
+        assert_eq!(
+            "17",
+            search_results.concatenate_indexes(&search_results.results.get(&4).unwrap().1)
+        );
+        assert_eq!(
+            "9",
+            search_results.concatenate_indexes(&search_results.results.get(&6).unwrap().1)
+        );
+        assert_eq!(
+            "2, 13, 24",
+            search_results.concatenate_indexes(&search_results.results.get(&7).unwrap().1)
+        );
+        assert_eq!(
+            "10",
+            search_results.concatenate_indexes(&search_results.results.get(&8).unwrap().1)
+        );
+        assert_eq!(
+            "5, 26",
+            search_results.concatenate_indexes(&search_results.results.get(&10).unwrap().1)
+        );
+        env::remove_var(GrepConfig::CASE_INSENSITIVE_ENV_VAR);
+
+    }
+}
+
